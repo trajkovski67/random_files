@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Conversion factor: 1 Eh = 627.509474 kcal/mol
+conv=627.509474
+
+# Header
+echo -e "Directory\tGsolv (kcal/mol)"
+
+# Loop through all subdirectories in 'files'
+for dir in */ ; do
+    if [ -d "$dir/alpb" ]; then
+        cd "$dir/alpb" || continue
+
+        if [ -f "xyz.xyz" ]; then
+            # Run xtb and capture output
+            output=$(xtb xyz.xyz --charge -1 --alpb water reference 2>/dev/null)
+
+            # Extract numeric value after 'Gsolv'
+            gsolv=$(echo "$output" | grep "Gsolv" | awk '{for(i=1;i<=NF;i++){if($i=="Gsolv"){print $(i+1);exit}}}')
+
+            if [ -n "$gsolv" ]; then
+                # Convert Eh → kcal/mol
+                gsolv_kcal=$(echo "$gsolv * $conv" | bc -l)
+                printf "%s\t%.4f\n" "${dir%/}" "$gsolv_kcal"
+            else
+                printf "%s\tGsolv not found\n" "${dir%/}"
+            fi
+        else
+            printf "%s\txyz.xyz not found\n" "${dir%/}"
+        fi
+
+        cd ../../
+    else
+        printf "%s\talpb directory not found\n" "${dir%/}"
+    fi
+done
+
